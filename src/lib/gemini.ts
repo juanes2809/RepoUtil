@@ -19,7 +19,7 @@ export async function chatWithGemini(
   userMessage: string
 ): Promise<string> {
   const ai = getGenAI();
-  const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
   const chat = model.startChat({
     history: [

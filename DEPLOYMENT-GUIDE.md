@@ -18,9 +18,10 @@ Esta guía cubre TODO lo necesario para poner tu tienda en producción.
 10. [Paso 9: Configurar URLs post-deploy](#paso-9-configurar-urls-post-deploy)
 11. [Paso 10: Configurar datos iniciales](#paso-10-configurar-datos-iniciales)
 12. [Paso 11: Verificar todo funciona](#paso-11-verificar-todo-funciona)
-13. [Referencia: Todas las variables de entorno](#referencia-variables-de-entorno)
-14. [Arquitectura del proyecto](#arquitectura-del-proyecto)
-15. [Solución de problemas](#solución-de-problemas)
+13. [Paso 12: Configurar dominio propio (opcional pero recomendado)](#paso-12-configurar-dominio-propio)
+14. [Referencia: Todas las variables de entorno](#referencia-variables-de-entorno)
+15. [Arquitectura del proyecto](#arquitectura-del-proyecto)
+16. [Solución de problemas](#solución-de-problemas)
 
 ---
 
@@ -408,81 +409,113 @@ git push -u origin main
 
 ### 8.2 Configurar variables de entorno
 
-**ANTES de hacer click en Deploy**, agrega TODAS estas variables:
+**ANTES de hacer click en Deploy**, agrega TODAS estas variables.
+
+**Leyenda - Cada variable tiene un indicador para que sepas qué hacer:**
+
+| Indicador | Significado |
+|-----------|-------------|
+| **REEMPLAZAR** | Debes poner TU valor real. Son credenciales únicas de tu cuenta en cada servicio. |
+| **SANDBOX** | El valor de ejemplo es de prueba/sandbox. Funciona para probar, pero DEBES cambiarlo a producción antes de lanzar la tienda con clientes reales. |
+| **GENERAR** | Debes generar un valor único con el comando indicado. |
+| **TU INFO** | Pon la información real de tu negocio. |
+| **NO CAMBIAR** | Déjalo exactamente así, son rutas fijas de la app. |
+| **DESPUES DEL DEPLOY** | No lo sabes aún. Ponlo temporal y actualízalo en el Paso 9 cuando tengas la URL de Vercel. |
+
+---
 
 #### Base de datos (Supabase)
 ```
-NEXT_PUBLIC_SUPABASE_URL = https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJhbG...
-SUPABASE_SERVICE_ROLE_KEY = eyJhbG...
+NEXT_PUBLIC_SUPABASE_URL = https://xxxxx.supabase.co           # REEMPLAZAR - Tu Project URL de Supabase (Paso 1.3)
+NEXT_PUBLIC_SUPABASE_ANON_KEY = eyJhbG...                      # REEMPLAZAR - Tu anon public key de Supabase (Paso 1.3)
+SUPABASE_SERVICE_ROLE_KEY = eyJhbG...                          # REEMPLAZAR - Tu service_role key de Supabase (Paso 1.3)
 ```
 
 #### Autenticación (Clerk)
 ```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = pk_test_xxxxx
-CLERK_SECRET_KEY = sk_test_xxxxx
-NEXT_PUBLIC_CLERK_SIGN_IN_URL = /sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL = /sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL = /
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL = /
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = pk_test_xxxxx              # REEMPLAZAR - Tu Publishable key de Clerk (Paso 2)
+CLERK_SECRET_KEY = sk_test_xxxxx                               # REEMPLAZAR - Tu Secret key de Clerk (Paso 2)
+NEXT_PUBLIC_CLERK_SIGN_IN_URL = /sign-in                       # NO CAMBIAR
+NEXT_PUBLIC_CLERK_SIGN_UP_URL = /sign-up                       # NO CAMBIAR
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL = /                        # NO CAMBIAR
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL = /                        # NO CAMBIAR
 ```
+
+> **Nota sobre Clerk y sandbox:** Las keys `pk_test_` y `sk_test_` son de modo desarrollo (sandbox). Funcionan perfectamente para probar todo. Cuando estés listo para producción, en Clerk Dashboard activa el modo "Production" y las keys cambiarán a `pk_live_` y `sk_live_`. Actualízalas en Vercel cuando hagas el cambio.
 
 #### Pagos (MercadoPago)
 ```
-MERCADOPAGO_ACCESS_TOKEN = APP_USR-xxxxx  (usa tu token de PRODUCCIÓN)
+MERCADOPAGO_ACCESS_TOKEN = TEST-xxxxx                          # SANDBOX - Empieza con TEST- para pruebas
 ```
+
+> **IMPORTANTE MercadoPago:** Para probar usa el token que empieza con `TEST-` (Paso 3.2). Cuando la tienda esté lista para recibir pagos reales, cámbialo por el token de producción que empieza con `APP_USR-` (Paso 3.3). **NO recibas pagos reales con el token TEST.**
 
 #### Emails (Resend)
 ```
-RESEND_API_KEY = re_xxxxx
-RESEND_FROM_EMAIL = onboarding@resend.dev  (o tu email verificado con dominio)
+RESEND_API_KEY = re_xxxxx                                      # REEMPLAZAR - Tu API Key de Resend (Paso 4.1)
+RESEND_FROM_EMAIL = onboarding@resend.dev                      # SANDBOX - Funciona para probar pero los emails pueden llegar a spam
 ```
+
+> **Nota sobre Resend:** `onboarding@resend.dev` es un remitente de prueba de Resend. Funciona, pero los emails pueden caer en spam. Para producción, verifica tu dominio en Resend (Paso 4.2) y cambia este valor a algo como `pedidos@tutienda.com`.
 
 #### Admin (login del panel `/admin`)
 ```
-ADMIN_EMAIL = tu_email_de_admin@gmail.com
-ADMIN_PASSWORD = tu_contraseña_segura
+ADMIN_EMAIL = tu_email_de_admin@gmail.com                      # TU INFO - El email con el que quieres entrar al panel admin
+ADMIN_PASSWORD = tu_contraseña_segura                          # TU INFO - La contraseña del panel admin (usa una segura)
 ```
 
 #### Información del negocio
 ```
-NEXT_PUBLIC_BUSINESS_NAME = Tu Tienda Colombia
-NEXT_PUBLIC_BUSINESS_EMAIL = contacto@tutienda.com
-NEXT_PUBLIC_BUSINESS_PHONE = +57 300 123 4567
-NEXT_PUBLIC_STORE_ADDRESS = Calle 123 #45-67
-NEXT_PUBLIC_STORE_CITY = Medellín, Antioquia
-NEXT_PUBLIC_STORE_HOURS = Lunes a Viernes 8am - 6pm, Sábados 9am - 2pm
-NEXT_PUBLIC_WHATSAPP_NUMBER = +573001234567
+NEXT_PUBLIC_BUSINESS_NAME = Tu Tienda Colombia                 # TU INFO - El nombre de tu tienda
+NEXT_PUBLIC_BUSINESS_EMAIL = contacto@tutienda.com             # TU INFO - Tu email de contacto
+NEXT_PUBLIC_BUSINESS_PHONE = +57 300 123 4567                  # TU INFO - Tu teléfono de contacto
+NEXT_PUBLIC_STORE_ADDRESS = Calle 123 #45-67                   # TU INFO - La dirección física de tu tienda
+NEXT_PUBLIC_STORE_CITY = Medellín, Antioquia                   # TU INFO - Ciudad y departamento
+NEXT_PUBLIC_STORE_HOURS = Lunes a Viernes 8am - 6pm, Sábados 9am - 2pm   # TU INFO - Horario de atención
+NEXT_PUBLIC_WHATSAPP_NUMBER = +573001234567                    # TU INFO - Tu número de WhatsApp (con código de país)
 ```
 
 #### NextAuth
 ```
-NEXTAUTH_SECRET = (genera uno: openssl rand -base64 32)
-NEXTAUTH_URL = https://tu-proyecto.vercel.app  (lo sabrás después del deploy)
+NEXTAUTH_SECRET = xxxxxxxxxxxxxxxxxxxxxxx                      # GENERAR - Ejecuta: openssl rand -base64 32
+NEXTAUTH_URL = https://tu-proyecto.vercel.app                  # DESPUES DEL DEPLOY - Pon cualquier valor por ahora, actualízalo en el Paso 9
 ```
 
 #### WhatsApp Business API
 ```
-WHATSAPP_ACCESS_TOKEN = tu_token_de_meta
-WHATSAPP_PHONE_NUMBER_ID = tu_phone_number_id
-WHATSAPP_VERIFY_TOKEN = mitienda_whatsapp_verify_2026  (inventas uno)
-WHATSAPP_ADMIN_PHONE = 573001234567  (tu número sin +)
+WHATSAPP_ACCESS_TOKEN = tu_token_de_meta                       # REEMPLAZAR - Tu token de Meta (Paso 6.4)
+WHATSAPP_PHONE_NUMBER_ID = tu_phone_number_id                  # REEMPLAZAR - Tu Phone Number ID de Meta (Paso 6.4)
+WHATSAPP_VERIFY_TOKEN = mitienda_whatsapp_verify_2026          # GENERAR - Inventa un string secreto cualquiera
+WHATSAPP_ADMIN_PHONE = 573001234567                            # TU INFO - Tu número personal sin + (donde recibes notificaciones)
 ```
+
+> **Nota sobre WhatsApp y sandbox:** Mientras no hagas la verificación de negocio en Meta, solo puedes enviar mensajes a los números que hayas verificado manualmente (máximo 5). Esto es suficiente para probar. Cuando Meta verifique tu negocio, podrás enviar a cualquier número.
 
 #### Google Gemini (IA)
 ```
-GEMINI_API_KEY = tu_gemini_api_key
+GEMINI_API_KEY = tu_gemini_api_key                             # REEMPLAZAR - Tu API key de Google AI Studio (Paso 5)
 ```
 
 #### URL del sitio
 ```
-NEXT_PUBLIC_SITE_URL = https://tu-proyecto.vercel.app  (lo sabrás después del deploy)
+NEXT_PUBLIC_SITE_URL = https://tu-proyecto.vercel.app          # DESPUES DEL DEPLOY - Pon cualquier valor por ahora, actualízalo en el Paso 9
 ```
 
 #### Cron Job (resumen diario)
 ```
-CRON_SECRET = (genera uno: openssl rand -hex 16)
+CRON_SECRET = xxxxxxxxxxxxxxxxxxxxxxx                          # GENERAR - Ejecuta: openssl rand -hex 16
 ```
+
+---
+
+### Resumen rápido: Qué cambiar y cuándo
+
+| Cuándo | Qué hacer |
+|--------|-----------|
+| **Ahora (antes del deploy)** | Reemplazar todas las variables marcadas como REEMPLAZAR, TU INFO y GENERAR con tus valores reales |
+| **Ahora (temporal)** | Las variables DESPUES DEL DEPLOY ponlas con un valor temporal (ej: `https://ejemplo.com`) |
+| **Después del primer deploy (Paso 9)** | Actualizar `NEXTAUTH_URL` y `NEXT_PUBLIC_SITE_URL` con tu URL real de Vercel |
+| **Cuando lances la tienda** | Cambiar las variables SANDBOX a sus valores de producción (MercadoPago `APP_USR-`, Resend con dominio propio, Clerk en modo live) |
 
 ### 8.3 Deploy
 
@@ -659,63 +692,195 @@ curl -H "Authorization: Bearer TU_CRON_SECRET" \
 
 ---
 
+## Paso 12: Configurar dominio propio
+
+> Opcional pero recomendado. Un dominio propio (ej: `teherantech.com`) le da profesionalismo a tu tienda. Sin dominio propio tu tienda funciona perfectamente con la URL gratuita de Vercel (`tu-proyecto.vercel.app`).
+
+### 12.1 Comprar el dominio
+
+Proveedores recomendados (de más barato a más caro):
+
+| Proveedor | Precio aprox. (.com) | Ventaja |
+|-----------|---------------------|---------|
+| **Google Domains** | ~$12 USD/año (~34,000 COP) | Interfaz simple, protección WHOIS gratis |
+| **Cloudflare Registrar** | ~$10 USD/año | Precio al costo, sin markup |
+| **Namecheap** | ~$9-13 USD/año | Económico, buena interfaz |
+
+1. Ve al proveedor que prefieras y busca el dominio que quieres
+2. Si `.com` no está disponible, prueba con `.co` (dominio colombiano, se ve profesional)
+3. Compra el dominio (el pago es anual)
+
+### 12.2 Conectar dominio a Vercel
+
+1. Ve a tu proyecto en Vercel > **Settings** > **Domains**
+2. Escribe tu dominio (ej: `teherantech.com`) y click **"Add"**
+3. Vercel te mostrará los registros DNS que necesitas configurar. Generalmente son:
+
+**Opción A - Si tu dominio está en Cloudflare, Google Domains o similar:**
+```
+Tipo: A
+Nombre: @
+Valor: 76.76.21.21
+```
+```
+Tipo: CNAME
+Nombre: www
+Valor: cname.vercel-dns.com
+```
+
+**Opción B - Si prefieres solo CNAME:**
+```
+Tipo: CNAME
+Nombre: @
+Valor: cname.vercel-dns.com
+```
+
+4. Ve a tu proveedor de dominio > **DNS** o **Configuración de DNS**
+5. Agrega los registros que Vercel te indicó
+6. Espera la propagación DNS (~5 minutos a 48 horas, normalmente menos de 1 hora)
+7. Vercel automáticamente genera un certificado SSL (HTTPS) gratis para tu dominio
+
+> **Tip:** Vercel te mostrará un check verde cuando el dominio esté conectado correctamente.
+
+### 12.3 Actualizar variables de entorno en Vercel
+
+Una vez que el dominio esté conectado, actualiza estas variables:
+
+1. Ve a Vercel > **Settings** > **Environment Variables**
+2. Cambia estas 2 variables (reemplaza `teherantech.com` por tu dominio real):
+
+```
+NEXTAUTH_URL = https://teherantech.com                    # Antes: https://tu-proyecto.vercel.app
+NEXT_PUBLIC_SITE_URL = https://teherantech.com             # Antes: https://tu-proyecto.vercel.app
+```
+
+### 12.4 Actualizar Clerk
+
+1. Ve a https://dashboard.clerk.com > tu aplicación > **Domains**
+2. Agrega tu nuevo dominio: `teherantech.com`
+3. Puedes mantener también `tu-proyecto.vercel.app` o quitarlo
+
+### 12.5 Actualizar Webhooks
+
+**MercadoPago:**
+1. Ve a https://www.mercadopago.com.co/developers > tu aplicación > **Webhooks**
+2. Cambia la URL a: `https://teherantech.com/api/webhook/mercadopago`
+
+**WhatsApp:**
+1. Ve a https://developers.facebook.com > tu app > **WhatsApp** > **Configuration**
+2. Cambia Callback URL a: `https://teherantech.com/api/webhook/whatsapp`
+3. Click **"Verify and Save"**
+
+### 12.6 Configurar Resend con tu dominio (emails profesionales)
+
+Esto permite enviar emails desde `pedidos@teherantech.com` en vez de `onboarding@resend.dev`:
+
+1. Ve a https://resend.com > **Domains** > **Add Domain**
+2. Escribe tu dominio: `teherantech.com`
+3. Resend te dará 3 registros DNS para agregar:
+
+| Tipo | Nombre | Valor |
+|------|--------|-------|
+| **MX** | `feedback-smtp.teherantech.com` | (valor que te da Resend) |
+| **TXT** | `teherantech.com` | (valor SPF que te da Resend) |
+| **CNAME** | `resend._domainkey.teherantech.com` | (valor DKIM que te da Resend) |
+
+4. Agrega estos registros en tu proveedor de dominio (donde compraste el dominio)
+5. Vuelve a Resend y click **"Verify"** (puede tardar de 5 minutos a 24 horas)
+6. Una vez verificado, actualiza la variable en Vercel:
+
+```
+RESEND_FROM_EMAIL = pedidos@teherantech.com               # Antes: onboarding@resend.dev
+```
+
+### 12.7 Redeploy
+
+Después de todos los cambios:
+
+1. Ve a Vercel > **Deployments**
+2. Click **"..."** del último deployment > **"Redeploy"**
+3. Espera a que termine
+
+### Checklist del dominio
+
+- [ ] Dominio comprado
+- [ ] DNS configurados y dominio conectado en Vercel (check verde)
+- [ ] `NEXTAUTH_URL` y `NEXT_PUBLIC_SITE_URL` actualizados con el nuevo dominio
+- [ ] Dominio agregado en Clerk
+- [ ] Webhook de MercadoPago actualizado con la nueva URL
+- [ ] Webhook de WhatsApp actualizado con la nueva URL
+- [ ] Dominio verificado en Resend y `RESEND_FROM_EMAIL` actualizado
+- [ ] Redeploy hecho en Vercel
+- [ ] Sitio carga correctamente en `https://teherantech.com`
+
+---
+
 ## Referencia: Variables de entorno
 
-Todas las variables necesarias en un solo lugar:
+Todas las variables con indicador de acción:
 
 ```env
 # ======= SUPABASE (Base de datos) =======
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbG...
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co        # REEMPLAZAR con tu URL de Supabase
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...                   # REEMPLAZAR con tu anon key
+SUPABASE_SERVICE_ROLE_KEY=eyJhbG...                       # REEMPLAZAR con tu service_role key
 
 # ======= CLERK (Autenticación de clientes) =======
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
-CLERK_SECRET_KEY=sk_test_xxxxx
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxx           # REEMPLAZAR (SANDBOX: cambiar a pk_live_ en producción)
+CLERK_SECRET_KEY=sk_test_xxxxx                            # REEMPLAZAR (SANDBOX: cambiar a sk_live_ en producción)
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in                    # NO CAMBIAR
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up                    # NO CAMBIAR
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/                     # NO CAMBIAR
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/                     # NO CAMBIAR
 
 # ======= MERCADOPAGO (Pagos online) =======
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-xxxxx
+MERCADOPAGO_ACCESS_TOKEN=TEST-xxxxx                       # SANDBOX: usar TEST- para pruebas, cambiar a APP_USR- para producción
 
 # ======= RESEND (Emails transaccionales) =======
-RESEND_API_KEY=re_xxxxx
-RESEND_FROM_EMAIL=onboarding@resend.dev
+RESEND_API_KEY=re_xxxxx                                   # REEMPLAZAR con tu API key
+RESEND_FROM_EMAIL=onboarding@resend.dev                   # SANDBOX: cambiar a pedidos@tudominio.com cuando verifiques dominio
 
 # ======= NEXTAUTH =======
-NEXTAUTH_SECRET=tu_secret_generado
-NEXTAUTH_URL=https://tu-proyecto.vercel.app
+NEXTAUTH_SECRET=xxxxxxxx                                  # GENERAR: openssl rand -base64 32
+NEXTAUTH_URL=https://tu-proyecto.vercel.app               # DESPUES DEL DEPLOY: poner tu URL real de Vercel
 
 # ======= ADMIN (Login panel administrativo) =======
-ADMIN_EMAIL=tu_email@gmail.com
-ADMIN_PASSWORD=tu_contraseña
+ADMIN_EMAIL=tu_email@gmail.com                            # TU INFO: tu email para entrar al admin
+ADMIN_PASSWORD=tu_contraseña                              # TU INFO: tu contraseña del admin
 
 # ======= NEGOCIO (Información pública) =======
-NEXT_PUBLIC_BUSINESS_NAME=Tu Tienda Colombia
-NEXT_PUBLIC_BUSINESS_EMAIL=contacto@tutienda.com
-NEXT_PUBLIC_BUSINESS_PHONE=+57 300 123 4567
-NEXT_PUBLIC_STORE_ADDRESS=Calle 123 #45-67
-NEXT_PUBLIC_STORE_CITY=Medellín, Antioquia
-NEXT_PUBLIC_STORE_HOURS=Lunes a Viernes 8am - 6pm
-NEXT_PUBLIC_WHATSAPP_NUMBER=+573001234567
+NEXT_PUBLIC_BUSINESS_NAME=Tu Tienda Colombia              # TU INFO
+NEXT_PUBLIC_BUSINESS_EMAIL=contacto@tutienda.com          # TU INFO
+NEXT_PUBLIC_BUSINESS_PHONE=+57 300 123 4567               # TU INFO
+NEXT_PUBLIC_STORE_ADDRESS=Calle 123 #45-67                # TU INFO
+NEXT_PUBLIC_STORE_CITY=Medellín, Antioquia                # TU INFO
+NEXT_PUBLIC_STORE_HOURS=Lunes a Viernes 8am - 6pm         # TU INFO
+NEXT_PUBLIC_WHATSAPP_NUMBER=+573001234567                 # TU INFO
 
 # ======= WHATSAPP BUSINESS API =======
-WHATSAPP_ACCESS_TOKEN=tu_token_meta
-WHATSAPP_PHONE_NUMBER_ID=tu_phone_number_id
-WHATSAPP_VERIFY_TOKEN=tu_verify_token
-WHATSAPP_ADMIN_PHONE=573001234567
+WHATSAPP_ACCESS_TOKEN=tu_token_meta                       # REEMPLAZAR con tu token de Meta
+WHATSAPP_PHONE_NUMBER_ID=tu_phone_number_id               # REEMPLAZAR con tu Phone Number ID
+WHATSAPP_VERIFY_TOKEN=tu_verify_token                     # GENERAR: inventa un string secreto
+WHATSAPP_ADMIN_PHONE=573001234567                         # TU INFO: tu número sin +
 
 # ======= GOOGLE GEMINI (IA) =======
-GEMINI_API_KEY=tu_gemini_key
+GEMINI_API_KEY=tu_gemini_key                              # REEMPLAZAR con tu API key de Google AI Studio
 
 # ======= OTROS =======
-NEXT_PUBLIC_SITE_URL=https://tu-proyecto.vercel.app
-CRON_SECRET=tu_cron_secret
+NEXT_PUBLIC_SITE_URL=https://tu-proyecto.vercel.app       # DESPUES DEL DEPLOY: poner tu URL real de Vercel
+CRON_SECRET=tu_cron_secret                                # GENERAR: openssl rand -hex 16
 ```
 
 **Total: 27 variables de entorno**
+
+| Tipo | Cantidad | Acción |
+|------|----------|--------|
+| REEMPLAZAR | 8 | Poner tus credenciales de cada servicio |
+| TU INFO | 9 | Poner la información real de tu negocio |
+| GENERAR | 3 | Generar valores únicos con los comandos indicados |
+| NO CAMBIAR | 4 | Dejar exactamente como están |
+| SANDBOX | 3 | Funcionan para probar, cambiar a producción cuando lances |
+| DESPUES DEL DEPLOY | 2 | Actualizar en el Paso 9 con tu URL de Vercel |
 
 ---
 
@@ -861,18 +1026,8 @@ Venta en persona → Admin API → Supabase (stock)
 - El producto debe tener nombre escrito antes de hacer click en "Generar con IA"
 - Revisa la consola del navegador y logs de Vercel para errores
 
-### Dominio personalizado (opcional)
-
-Si tienes un dominio propio (ej: tutienda.com):
-1. Ve a Vercel > Settings > Domains
-2. Agrega tu dominio
-3. Configura los DNS según las instrucciones de Vercel (generalmente un CNAME)
-4. Actualiza TODAS las URLs en las variables de entorno:
-   - `NEXTAUTH_URL`
-   - `NEXT_PUBLIC_SITE_URL`
-5. Actualiza los webhooks:
-   - MercadoPago: nueva URL del webhook
-   - WhatsApp: nueva callback URL
-6. Actualiza los dominios en Clerk
-7. Actualiza los DNS de Resend si cambias el dominio de envío
-8. Redeploy en Vercel
+### Dominio personalizado no funciona
+- Verifica que los registros DNS estén correctos en tu proveedor de dominio
+- La propagación DNS puede tardar hasta 48 horas (normalmente menos de 1 hora)
+- En Vercel > Settings > Domains debe aparecer un check verde junto a tu dominio
+- Si no tienes dominio configurado aún, sigue el **Paso 12** de esta guía
