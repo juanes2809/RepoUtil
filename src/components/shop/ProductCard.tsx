@@ -36,7 +36,7 @@ export default function ProductCard({ product, onOpenModal }: ProductCardProps) 
             src={product.main_image}
             alt={product.name}
             fill
-            className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+            className="object-contain group-hover:scale-110 transition-transform duration-700 ease-out"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-neutral-300">

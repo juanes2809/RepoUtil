@@ -84,13 +84,13 @@ export default function ProductModal({ product, onClose }: ProductModalProps) {
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Image Gallery */}
           <div className="bg-neutral-100 rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none overflow-hidden flex flex-col">
-            <div className="relative h-72 md:h-80 flex-shrink-0">
+            <div className="relative h-80 md:h-96 flex-shrink-0">
               {allImages.length > 0 ? (
                 <Image
                   src={allImages[currentImage]}
                   alt={product.name}
                   fill
-                  className="object-cover"
+                  className="object-contain p-4"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-neutral-400">
