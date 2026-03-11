@@ -158,7 +158,7 @@ export default function CheckoutPage() {
   async function fetchCities() {
     const { data } = await supabase
       .from('cities')
-      .select('*, department:departments(*), mipaquete_code');
+      .select('*, department:departments(*)');
     if (data) setCities(data);
   }
 
