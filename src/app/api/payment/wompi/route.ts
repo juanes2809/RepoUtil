@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Wompi payment gateway integration (Bancolombia)
 export async function POST(request: NextRequest) {
   try {
     const { items, reference, customerEmail, redirectUrl } = await request.json();
