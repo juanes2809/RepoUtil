@@ -14,34 +14,86 @@ function SuccessContent() {
   const { clearCart } = useCart();
 
   useEffect(() => {
-    const status =
-      searchParams.get('status') ||
-      searchParams.get('collection_status') ||
-      'approved';
+    const gateway = searchParams.get('gateway') || localStorage.getItem('payment_gateway') || 'mercadopago';
 
-    // Si MP redirigió aquí con pago rechazado/cancelado, mandamos a /failure
-    if (status === 'rejected' || status === 'cancelled' || status === 'failure') {
-      router.replace('/failure');
-      return;
+    if (gateway === 'wompi') {
+      // Wompi redirect: check transaction by reference
+      const wompiId = searchParams.get('id');
+      const externalReference = localStorage.getItem('mp_pending_identifier');
+
+      if (!externalReference && !wompiId) return;
+
+      localStorage.removeItem('mp_pending_identifier');
+      localStorage.removeItem('payment_gateway');
+
+      // Wompi sends the transaction id in the URL - verify status via API
+      if (wompiId) {
+        const baseUrl = process.env.NEXT_PUBLIC_WOMPI_SANDBOX === 'true'
+          ? 'https://sandbox.wompi.co/v1'
+          : 'https://production.wompi.co/v1';
+
+        fetch(`${baseUrl}/transactions/${wompiId}`)
+          .then(res => res.json())
+          .then(data => {
+            const wompiStatus = data?.data?.status;
+            if (wompiStatus === 'DECLINED' || wompiStatus === 'VOIDED' || wompiStatus === 'ERROR') {
+              router.replace('/failure');
+              return;
+            }
+            if (wompiStatus === 'APPROVED') {
+              clearCart();
+              const ref = data?.data?.reference || externalReference;
+              if (ref) {
+                fetch('/api/orders/confirm', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ external_reference: ref, status: 'approved' }),
+                }).catch(console.error);
+              }
+            }
+            // PENDING status: show pending UI
+            if (wompiStatus === 'PENDING') {
+              clearCart();
+            }
+          })
+          .catch(console.error);
+      } else if (externalReference) {
+        clearCart();
+        fetch('/api/orders/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ external_reference: externalReference, status: 'approved' }),
+        }).catch(console.error);
+      }
+    } else {
+      // MercadoPago flow
+      const status =
+        searchParams.get('status') ||
+        searchParams.get('collection_status') ||
+        'approved';
+
+      if (status === 'rejected' || status === 'cancelled' || status === 'failure') {
+        router.replace('/failure');
+        return;
+      }
+
+      const externalReference =
+        searchParams.get('external_reference') ||
+        localStorage.getItem('mp_pending_identifier');
+
+      if (!externalReference) return;
+
+      localStorage.removeItem('mp_pending_identifier');
+      localStorage.removeItem('payment_gateway');
+
+      clearCart();
+
+      fetch('/api/orders/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ external_reference: externalReference, status }),
+      }).catch(console.error);
     }
-
-    // MP puede volver con external_reference en la URL, o usamos el localStorage como fallback
-    const externalReference =
-      searchParams.get('external_reference') ||
-      localStorage.getItem('mp_pending_identifier');
-
-    if (!externalReference) return;
-
-    localStorage.removeItem('mp_pending_identifier');
-
-    // Limpiar el carrito ahora que el pago fue exitoso
-    clearCart();
-
-    fetch('/api/orders/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ external_reference: externalReference, status }),
-    }).catch(console.error);
   }, [searchParams]);
 
   const isPending =

@@ -47,6 +47,9 @@ export default function CheckoutPage() {
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [shippingError, setShippingError] = useState('');
 
+  // Payment method state
+  const [paymentMethod, setPaymentMethod] = useState<'mercadopago' | 'wompi'>('mercadopago');
+
   const subtotal = getTotal();
   const discount = appliedCoupon
     ? appliedCoupon.discount_type === 'percentage'
@@ -284,16 +287,30 @@ export default function CheckoutPage() {
           });
         }
 
-        const paymentRes = await fetch('/api/payment/mercadopago', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: paymentItems,
-            successUrl: `${window.location.origin}/success`,
-            pendingUrl: `${window.location.origin}/success`,
-            failureUrl: `${window.location.origin}/failure`,
-          }),
-        });
+        let paymentRes: Response;
+
+        if (paymentMethod === 'wompi') {
+          paymentRes = await fetch('/api/payment/wompi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: paymentItems,
+              customerEmail: customerEmail,
+              redirectUrl: `${window.location.origin}/success?gateway=wompi`,
+            }),
+          });
+        } else {
+          paymentRes = await fetch('/api/payment/mercadopago', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: paymentItems,
+              successUrl: `${window.location.origin}/success`,
+              pendingUrl: `${window.location.origin}/success`,
+              failureUrl: `${window.location.origin}/failure`,
+            }),
+          });
+        }
 
         if (!paymentRes.ok) throw new Error('Error al crear el pago');
 
@@ -308,12 +325,10 @@ export default function CheckoutPage() {
           }),
         });
 
-        // Guardar identifier como fallback (por si MP no redirige automáticamente)
+        // Guardar identifier y gateway como fallback
         localStorage.setItem('mp_pending_identifier', paymentData.identifier);
+        localStorage.setItem('payment_gateway', paymentMethod);
 
-        // Redirigir a MercadoPago sin limpiar el carrito.
-        // El carrito se limpia en la página de éxito al confirmar el pago.
-        // Si el pago falla, el carrito sigue intacto para que el usuario pueda reintentar.
         window.location.href = paymentData.payment_url;
       } catch (error) {
         console.error('Checkout error:', error);
@@ -755,12 +770,64 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* Payment Method Selector */}
+              <div className="mb-8">
+                <label className="block text-sm font-bold text-neutral-700 mb-3 uppercase tracking-wider">Método de Pago</label>
+                <div className="grid grid-cols-1 gap-3">
+                  <label className={`relative flex items-center p-4 cursor-pointer rounded-xl transition-all duration-300 border-2 ${
+                    paymentMethod === 'mercadopago'
+                      ? 'bg-blue-50/50 border-blue-500 shadow-sm'
+                      : 'bg-white/60 border-neutral-200 hover:border-neutral-300'
+                  }`}>
+                    <input
+                      type="radio"
+                      value="mercadopago"
+                      checked={paymentMethod === 'mercadopago'}
+                      onChange={() => setPaymentMethod('mercadopago')}
+                      className="w-4 h-4 text-blue-600 border-neutral-300 focus:ring-blue-500"
+                    />
+                    <div className="ml-3 flex-grow">
+                      <span className="block text-sm font-bold text-neutral-900">MercadoPago</span>
+                      <span className="block text-xs text-neutral-500">Tarjetas, PSE, Nequi, Efecty y más</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-blue-600">
+                      <CreditCard className="w-5 h-5" />
+                    </div>
+                  </label>
+
+                  <label className={`relative flex items-center p-4 cursor-pointer rounded-xl transition-all duration-300 border-2 ${
+                    paymentMethod === 'wompi'
+                      ? 'bg-emerald-50/50 border-emerald-500 shadow-sm'
+                      : 'bg-white/60 border-neutral-200 hover:border-neutral-300'
+                  }`}>
+                    <input
+                      type="radio"
+                      value="wompi"
+                      checked={paymentMethod === 'wompi'}
+                      onChange={() => setPaymentMethod('wompi')}
+                      className="w-4 h-4 text-emerald-600 border-neutral-300 focus:ring-emerald-500"
+                    />
+                    <div className="ml-3 flex-grow">
+                      <span className="block text-sm font-bold text-neutral-900">Wompi</span>
+                      <span className="block text-xs text-neutral-500">Bancolombia, tarjetas, PSE, Nequi</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-emerald-600">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               <div className="relative group/payBtn">
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary-500 to-accent-500 rounded-2xl blur opacity-30 group-hover/payBtn:opacity-60 transition duration-500 group-disabled/payBtn:hidden"></div>
+                <div className={`absolute -inset-1 rounded-2xl blur opacity-30 group-hover/payBtn:opacity-60 transition duration-500 group-disabled/payBtn:hidden ${
+                  paymentMethod === 'wompi' ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-primary-500 to-accent-500'
+                }`}></div>
                 <button
                   onClick={handleCheckout}
                   disabled={isPending}
-                  className="relative w-full bg-neutral-900 hover:bg-neutral-800 text-white py-6 rounded-2xl font-bold text-xl transition-all duration-300 hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 overflow-hidden"
+                  className={`relative w-full text-white py-6 rounded-2xl font-bold text-xl transition-all duration-300 hover:shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 overflow-hidden ${
+                    paymentMethod === 'wompi' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-neutral-900 hover:bg-neutral-800'
+                  }`}
                 >
                   {isPending ? (
                     <span className="flex items-center gap-2">
@@ -772,7 +839,7 @@ export default function CheckoutPage() {
                     </span>
                   ) : (
                     <>
-                      <span>Pagar con MercadoPago</span>
+                      <span>Pagar con {paymentMethod === 'wompi' ? 'Wompi' : 'MercadoPago'}</span>
                       <CreditCard className="w-6 h-6 flex-shrink-0" />
                     </>
                   )}
