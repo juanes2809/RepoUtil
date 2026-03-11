@@ -99,11 +99,13 @@ export default function CheckoutPage() {
   }, [selectedCity, deliveryType, cities]);
 
   async function fetchShippingQuotes(city: City) {
-    // If city has no mipaquete_code, use the fixed delivery_cost from DB
-    if (!(city as any).mipaquete_code) {
-      setDeliveryCost(city.delivery_cost);
+    const mipaqueteCode = (city as any).mipaquete_code;
+
+    if (!mipaqueteCode) {
+      setDeliveryCost(0);
       setShippingOptions([]);
       setSelectedShipping(-1);
+      setShippingError('No disponemos de envíos a ese lugar por el momento.');
       return;
     }
 
@@ -118,7 +120,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destinationCity: (city as any).mipaquete_code,
+          destinationCity: mipaqueteCode,
           declaredValue: subtotal,
         }),
       });
@@ -129,19 +131,17 @@ export default function CheckoutPage() {
 
       if (data.quotes && data.quotes.length > 0) {
         setShippingOptions(data.quotes);
-        // Auto-select cheapest option
         const cheapestIdx = data.quotes.reduce((minIdx: number, opt: ShippingOption, idx: number) =>
           opt.price < data.quotes[minIdx].price ? idx : minIdx, 0);
         setSelectedShipping(cheapestIdx);
         setDeliveryCost(data.quotes[cheapestIdx].price);
       } else {
-        // No quotes available, fall back to fixed cost
-        setDeliveryCost(city.delivery_cost);
+        setDeliveryCost(0);
+        setShippingError('No disponemos de envíos a ese lugar por el momento.');
       }
     } catch {
-      // Fall back to fixed cost from DB
-      setDeliveryCost(city.delivery_cost);
-      setShippingError('No se pudieron obtener tarifas en tiempo real. Se usa tarifa estándar.');
+      setDeliveryCost(0);
+      setShippingError('No disponemos de envíos a ese lugar por el momento.');
     } finally {
       setLoadingShipping(false);
     }
@@ -604,7 +604,7 @@ export default function CheckoutPage() {
                       <option value="">Selecciona una ciudad</option>
                       {filteredCities.map((city) => (
                         <option key={city.id} value={city.id}>
-                          {city.name} - ${city.delivery_cost.toLocaleString('es-CO')}
+                          {city.name}
                         </option>
                       ))}
                     </select>
