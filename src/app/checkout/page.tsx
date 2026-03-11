@@ -7,10 +7,17 @@ import { useCart } from '@/lib/cart-store';
 import { Department, City, Coupon } from '@/types';
 import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
-import { Trash2, Minus, Plus, Tag, ShoppingBag, CreditCard, ChevronRight, ShieldCheck } from 'lucide-react';
+import { Trash2, Minus, Plus, Tag, ShoppingBag, CreditCard, ChevronRight, ShieldCheck, Truck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useUser } from '@clerk/nextjs';
+
+interface ShippingOption {
+  carrier: string;
+  price: number;
+  deliveryDays: number;
+  serviceType: string;
+}
 
 export default function CheckoutPage() {
   const { items, removeItem, updateQuantity, getTotal } = useCart();
@@ -33,6 +40,12 @@ export default function CheckoutPage() {
   const [filteredCities, setFilteredCities] = useState<City[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [deliveryCost, setDeliveryCost] = useState(0);
+
+  // MiPaquete shipping state
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<number>(-1);
+  const [loadingShipping, setLoadingShipping] = useState(false);
+  const [shippingError, setShippingError] = useState('');
 
   const subtotal = getTotal();
   const discount = appliedCoupon
@@ -74,12 +87,65 @@ export default function CheckoutPage() {
     if (selectedCity && deliveryType === 'delivery') {
       const city = cities.find(c => c.id === selectedCity);
       if (city) {
-        setDeliveryCost(city.delivery_cost);
+        // Try MiPaquete quote, fall back to fixed cost
+        fetchShippingQuotes(city);
       }
     } else {
       setDeliveryCost(0);
+      setShippingOptions([]);
+      setSelectedShipping(-1);
+      setShippingError('');
     }
   }, [selectedCity, deliveryType, cities]);
+
+  async function fetchShippingQuotes(city: City) {
+    // If city has no mipaquete_code, use the fixed delivery_cost from DB
+    if (!(city as any).mipaquete_code) {
+      setDeliveryCost(city.delivery_cost);
+      setShippingOptions([]);
+      setSelectedShipping(-1);
+      return;
+    }
+
+    setLoadingShipping(true);
+    setShippingError('');
+    setShippingOptions([]);
+    setSelectedShipping(-1);
+    setDeliveryCost(0);
+
+    try {
+      const res = await fetch('/api/shipping/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinationCity: (city as any).mipaquete_code,
+          declaredValue: subtotal,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Error al cotizar envío');
+
+      const data = await res.json();
+
+      if (data.quotes && data.quotes.length > 0) {
+        setShippingOptions(data.quotes);
+        // Auto-select cheapest option
+        const cheapestIdx = data.quotes.reduce((minIdx: number, opt: ShippingOption, idx: number) =>
+          opt.price < data.quotes[minIdx].price ? idx : minIdx, 0);
+        setSelectedShipping(cheapestIdx);
+        setDeliveryCost(data.quotes[cheapestIdx].price);
+      } else {
+        // No quotes available, fall back to fixed cost
+        setDeliveryCost(city.delivery_cost);
+      }
+    } catch {
+      // Fall back to fixed cost from DB
+      setDeliveryCost(city.delivery_cost);
+      setShippingError('No se pudieron obtener tarifas en tiempo real. Se usa tarifa estándar.');
+    } finally {
+      setLoadingShipping(false);
+    }
+  }
 
   async function fetchDepartments() {
     const { data } = await supabase
@@ -92,7 +158,7 @@ export default function CheckoutPage() {
   async function fetchCities() {
     const { data } = await supabase
       .from('cities')
-      .select('*, department:departments(*)');
+      .select('*, department:departments(*), mipaquete_code');
     if (data) setCities(data);
   }
 
@@ -555,6 +621,66 @@ export default function CheckoutPage() {
                       required
                     />
                   </div>
+
+                  {/* MiPaquete Shipping Options */}
+                  {loadingShipping && (
+                    <div className="md:col-span-2 flex items-center justify-center gap-3 py-6 text-neutral-500">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="font-medium">Cotizando opciones de envío...</span>
+                    </div>
+                  )}
+
+                  {shippingError && (
+                    <div className="md:col-span-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                      {shippingError}
+                    </div>
+                  )}
+
+                  {shippingOptions.length > 0 && !loadingShipping && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold text-neutral-700 mb-3">
+                        <Truck className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                        Opciones de envío
+                      </label>
+                      <div className="space-y-3">
+                        {shippingOptions.map((option, idx) => (
+                          <label
+                            key={idx}
+                            className={`flex items-center justify-between p-4 cursor-pointer rounded-xl transition-all duration-200 border-2 ${
+                              selectedShipping === idx
+                                ? 'bg-primary-50/50 border-primary-500 shadow-sm'
+                                : 'bg-white/60 border-neutral-200 hover:border-neutral-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="radio"
+                                name="shipping"
+                                checked={selectedShipping === idx}
+                                onChange={() => {
+                                  setSelectedShipping(idx);
+                                  setDeliveryCost(option.price);
+                                }}
+                                className="w-4 h-4 text-primary-600 border-neutral-300 focus:ring-primary-500"
+                              />
+                              <div>
+                                <span className="font-bold text-neutral-900 text-sm">{option.carrier}</span>
+                                <span className="block text-xs text-neutral-500">
+                                  {option.deliveryDays > 0
+                                    ? `${option.deliveryDays} día${option.deliveryDays > 1 ? 's' : ''} hábil${option.deliveryDays > 1 ? 'es' : ''}`
+                                    : 'Consultar tiempo de entrega'}
+                                  {option.serviceType && ` · ${option.serviceType}`}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="font-bold text-neutral-900">
+                              ${option.price.toLocaleString('es-CO')}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -501,6 +501,19 @@ GEMINI_API_KEY = tu_gemini_api_key                             # REEMPLAZAR - Tu
 NEXT_PUBLIC_SITE_URL = https://tu-proyecto.vercel.app          # DESPUES DEL DEPLOY - Pon cualquier valor por ahora, actualízalo en el Paso 9
 ```
 
+#### MiPaquete (Envíos - opcional)
+```
+MIPAQUETE_API_KEY = tu_token_jwt_de_mipaquete                  # REEMPLAZAR - Tu API key (token JWT) de MiPaquete
+MIPAQUETE_SANDBOX = false                                      # SANDBOX - Cambiar a true si usas cuenta de prueba
+MIPAQUETE_ORIGIN_CITY = 05001000                               # REEMPLAZAR - Código DANE+000 de tu ciudad origen (ej: 05001000 = Medellín)
+MIPAQUETE_DEFAULT_WEIGHT = 1                                   # TU INFO - Peso promedio de paquete en kg
+MIPAQUETE_DEFAULT_WIDTH = 20                                   # TU INFO - Ancho promedio en cm
+MIPAQUETE_DEFAULT_HEIGHT = 15                                  # TU INFO - Alto promedio en cm
+MIPAQUETE_DEFAULT_LENGTH = 30                                  # TU INFO - Largo promedio en cm
+```
+
+> **Nota sobre MiPaquete:** Si no configuras MiPaquete, el envío usa las tarifas fijas de la base de datos. MiPaquete cotiza en tiempo real con Servientrega, TCC, Coordinadora y más. El API key es el token JWT que obtienes al autenticarte en mipaquete.com. El código de ciudad origen es tu código DANE + "000" (ej: Medellín = 05001000, Bogotá = 11001000).
+
 #### Cron Job (resumen diario)
 ```
 CRON_SECRET = xxxxxxxxxxxxxxxxxxxxxxx                          # GENERAR - Ejecuta: openssl rand -hex 16
@@ -865,6 +878,15 @@ WHATSAPP_ADMIN_PHONE=573001234567                         # TU INFO: tu número 
 
 # ======= GOOGLE GEMINI (IA) =======
 GEMINI_API_KEY=tu_gemini_key                              # REEMPLAZAR con tu API key de Google AI Studio
+
+# ======= MIPAQUETE (Envíos - opcional) =======
+MIPAQUETE_API_KEY=tu_token_jwt                            # REEMPLAZAR con tu API key (token JWT) de MiPaquete
+MIPAQUETE_SANDBOX=false                                   # SANDBOX: cambiar a true si usas cuenta de prueba
+MIPAQUETE_ORIGIN_CITY=05001000                            # REEMPLAZAR con código DANE+000 de tu ciudad origen
+MIPAQUETE_DEFAULT_WEIGHT=1                                # TU INFO: peso promedio en kg
+MIPAQUETE_DEFAULT_WIDTH=20                                # TU INFO: ancho promedio en cm
+MIPAQUETE_DEFAULT_HEIGHT=15                               # TU INFO: alto promedio en cm
+MIPAQUETE_DEFAULT_LENGTH=30                               # TU INFO: largo promedio en cm
 
 # ======= OTROS =======
 NEXT_PUBLIC_SITE_URL=https://tu-proyecto.vercel.app       # DESPUES DEL DEPLOY: poner tu URL real de Vercel
