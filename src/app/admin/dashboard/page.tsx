@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Package, ShoppingCart, TrendingUp, AlertCircle,
-  CheckCircle, LogOut, Settings, Tag, Grid, Receipt
+  CheckCircle, LogOut, Settings, Tag, Grid, Receipt,
+  Box, BarChart3
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Order, Product } from '@/types';
@@ -177,7 +178,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
           <Link
             href="/admin/sales"
             className="bg-gradient-to-br from-primary-50 to-primary-100 hover:from-primary-100 hover:to-primary-200 rounded-xl p-6 shadow-sm border border-primary-200 transition-all hover:scale-105 group"
@@ -221,6 +222,24 @@ export default function AdminDashboard() {
             <Tag className="w-8 h-8 text-green-500 mb-3 group-hover:scale-110 transition-transform" />
             <h3 className="font-semibold text-lg">Cupones</h3>
             <p className="text-sm text-neutral-600 mt-1">Gestionar descuentos</p>
+          </Link>
+
+          <Link
+            href="/admin/boxes"
+            className="bg-white hover:bg-neutral-50 rounded-xl p-6 shadow-sm border border-neutral-200 transition-all hover:scale-105 group"
+          >
+            <Box className="w-8 h-8 text-orange-500 mb-3 group-hover:scale-110 transition-transform" />
+            <h3 className="font-semibold text-lg">Cajas</h3>
+            <p className="text-sm text-neutral-600 mt-1">Cajas para envío</p>
+          </Link>
+
+          <Link
+            href="/admin/stats"
+            className="bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-xl p-6 shadow-sm border border-blue-200 transition-all hover:scale-105 group"
+          >
+            <BarChart3 className="w-8 h-8 text-blue-600 mb-3 group-hover:scale-110 transition-transform" />
+            <h3 className="font-semibold text-lg text-blue-900">Estadísticas</h3>
+            <p className="text-sm text-blue-700 mt-1">Ventas y métricas</p>
           </Link>
         </div>
 
