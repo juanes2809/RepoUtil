@@ -3,14 +3,15 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { Category } from '@/types';
 import { ArrowLeft, BarChart3, TrendingUp, DollarSign, ShoppingCart, Package } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell
 } from 'recharts';
 
 interface MonthlyData {
   month: string;
-  ventas: number;
   ingresos: number;
   pedidos: number;
 }
@@ -22,6 +23,7 @@ interface TopProductData {
 }
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'];
 
 export default function AdminStatsPage() {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
@@ -30,20 +32,87 @@ export default function AdminStatsPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
+  // Category filter
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  // Map product_id -> category_ids
+  const [productCategories, setProductCategories] = useState<Record<string, string[]>>({});
+
   // Summary stats
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
   const [avgOrderValue, setAvgOrderValue] = useState(0);
   const [totalProductsSold, setTotalProductsSold] = useState(0);
 
+  // Raw data for filtering
+  const [allYearItems, setAllYearItems] = useState<Array<{ product_id: string | null; product_name: string; product_price: number; quantity: number }>>([]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
   useEffect(() => {
     fetchStats();
   }, [selectedYear]);
 
+  useEffect(() => {
+    filterByCategory();
+  }, [selectedCategory, allYearItems, productCategories]);
+
+  async function fetchCategories() {
+    const { data } = await supabase.from('categories').select('*').order('name');
+    if (data) setCategories(data);
+
+    // Fetch product_categories mapping
+    const { data: pcData } = await supabase.from('product_categories').select('product_id, category_id');
+    if (pcData) {
+      const map: Record<string, string[]> = {};
+      pcData.forEach((pc: { product_id: string; category_id: string }) => {
+        if (!map[pc.product_id]) map[pc.product_id] = [];
+        map[pc.product_id].push(pc.category_id);
+      });
+      setProductCategories(map);
+    }
+  }
+
+  function filterByCategory() {
+    if (allYearItems.length === 0) return;
+
+    let filtered = allYearItems;
+
+    if (selectedCategory !== 'all') {
+      filtered = allYearItems.filter(item => {
+        if (!item.product_id) return false;
+        const cats = productCategories[item.product_id];
+        return cats && cats.includes(selectedCategory);
+      });
+    }
+
+    const productMap: Record<string, { quantity: number; revenue: number }> = {};
+    let totalSold = 0;
+
+    filtered.forEach(item => {
+      if (!productMap[item.product_name]) {
+        productMap[item.product_name] = { quantity: 0, revenue: 0 };
+      }
+      productMap[item.product_name].quantity += item.quantity;
+      productMap[item.product_name].revenue += item.product_price * item.quantity;
+      totalSold += item.quantity;
+    });
+
+    setTotalProductsSold(totalSold);
+
+    const sorted = Object.entries(productMap)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
+
+    setTopProducts(sorted);
+  }
+
   async function fetchStats() {
     setLoading(true);
     try {
-      // Fetch all paid orders
       const { data: orders } = await supabase
         .from('orders')
         .select('*')
@@ -54,62 +123,36 @@ export default function AdminStatsPage() {
         return;
       }
 
-      // Determine available years
       const yearsSet = new Set(orders.map(o => new Date(o.created_at).getFullYear()));
       const years = Array.from(yearsSet).sort((a, b) => b - a);
       if (years.length === 0) years.push(new Date().getFullYear());
       setAvailableYears(years);
 
-      // Filter by selected year
       const yearOrders = orders.filter(o => new Date(o.created_at).getFullYear() === selectedYear);
 
-      // Monthly aggregation
       const monthly: MonthlyData[] = MONTHS.map((month, idx) => {
         const monthOrders = yearOrders.filter(o => new Date(o.created_at).getMonth() === idx);
         return {
           month,
-          ventas: monthOrders.length,
           ingresos: monthOrders.reduce((sum, o) => sum + (o.total || 0), 0),
           pedidos: monthOrders.length,
         };
       });
       setMonthlyData(monthly);
 
-      // Summary
       const rev = yearOrders.reduce((sum, o) => sum + (o.total || 0), 0);
       setTotalRevenue(rev);
       setTotalOrders(yearOrders.length);
       setAvgOrderValue(yearOrders.length > 0 ? rev / yearOrders.length : 0);
 
-      // Top products
       const { data: orderItems } = await supabase
         .from('order_items')
-        .select('product_name, product_price, quantity, order_id');
+        .select('product_id, product_name, product_price, quantity, order_id');
 
       if (orderItems) {
         const yearOrderIds = new Set(yearOrders.map(o => o.id));
         const yearItems = orderItems.filter(item => yearOrderIds.has(item.order_id));
-
-        const productMap: Record<string, { quantity: number; revenue: number }> = {};
-        let totalSold = 0;
-
-        yearItems.forEach(item => {
-          if (!productMap[item.product_name]) {
-            productMap[item.product_name] = { quantity: 0, revenue: 0 };
-          }
-          productMap[item.product_name].quantity += item.quantity;
-          productMap[item.product_name].revenue += item.product_price * item.quantity;
-          totalSold += item.quantity;
-        });
-
-        setTotalProductsSold(totalSold);
-
-        const sorted = Object.entries(productMap)
-          .map(([name, data]) => ({ name, ...data }))
-          .sort((a, b) => b.quantity - a.quantity)
-          .slice(0, 10);
-
-        setTopProducts(sorted);
+        setAllYearItems(yearItems);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -235,58 +278,94 @@ export default function AdminStatsPage() {
               </div>
             </div>
 
-            {/* Top Products */}
+            {/* Top Products - Pie Chart */}
             <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-              <h2 className="text-lg font-semibold mb-4">Top 10 Productos ({selectedYear})</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                <h2 className="text-lg font-semibold">Top Productos ({selectedYear})</h2>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedCategory('all')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      selectedCategory === 'all'
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        selectedCategory === cat.id
+                          ? 'bg-neutral-900 text-white'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {topProducts.length > 0 ? (
-                <>
-                  <div className="h-80 mb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Pie Chart */}
+                  <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={topProducts} layout="vertical" margin={{ left: 100 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis type="number" tick={{ fontSize: 12 }} />
-                        <YAxis
-                          dataKey="name"
-                          type="category"
-                          tick={{ fontSize: 11 }}
-                          width={90}
-                        />
+                      <PieChart>
+                        <Pie
+                          data={topProducts}
+                          dataKey="quantity"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={120}
+                          label={({ name, percent }) => `${name.length > 12 ? name.slice(0, 12) + '...' : name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={true}
+                        >
+                          {topProducts.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
                         <Tooltip
-                          formatter={(value: number, name: string) => [
-                            name === 'quantity' ? value : formatCurrency(value),
-                            name === 'quantity' ? 'Unidades' : 'Ingresos'
-                          ]}
+                          formatter={(value: number, name: string) => [`${value} unidades`, name]}
                         />
-                        <Legend />
-                        <Bar dataKey="quantity" fill="#f59e0b" radius={[0, 4, 4, 0]} name="Unidades" />
-                      </BarChart>
+                      </PieChart>
                     </ResponsiveContainer>
                   </div>
+
+                  {/* Table */}
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-neutral-50">
                         <tr>
                           <th className="text-left px-4 py-3 text-sm font-semibold text-neutral-600">#</th>
                           <th className="text-left px-4 py-3 text-sm font-semibold text-neutral-600">Producto</th>
-                          <th className="text-right px-4 py-3 text-sm font-semibold text-neutral-600">Unidades</th>
+                          <th className="text-right px-4 py-3 text-sm font-semibold text-neutral-600">Uds</th>
                           <th className="text-right px-4 py-3 text-sm font-semibold text-neutral-600">Ingresos</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-200">
                         {topProducts.map((p, i) => (
                           <tr key={p.name} className="hover:bg-neutral-50">
-                            <td className="px-4 py-3 text-sm font-medium text-neutral-400">{i + 1}</td>
-                            <td className="px-4 py-3 font-medium">{p.name}</td>
-                            <td className="px-4 py-3 text-right">{p.quantity}</td>
-                            <td className="px-4 py-3 text-right font-semibold">{formatCurrency(p.revenue)}</td>
+                            <td className="px-4 py-3">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                            </td>
+                            <td className="px-4 py-3 font-medium text-sm">{p.name}</td>
+                            <td className="px-4 py-3 text-right text-sm">{p.quantity}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-sm">{formatCurrency(p.revenue)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                </>
+                </div>
               ) : (
-                <p className="text-neutral-500 text-center py-8">No hay datos de ventas para este año.</p>
+                <p className="text-neutral-500 text-center py-8">
+                  {selectedCategory !== 'all' ? 'No hay ventas en esta categoría para este año.' : 'No hay datos de ventas para este año.'}
+                </p>
               )}
             </div>
           </>
