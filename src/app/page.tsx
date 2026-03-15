@@ -22,6 +22,8 @@ export default function Home() {
     fetchData();
   }, [selectedCategory]);
 
+  const [topProduct, setTopProduct] = useState<Product | null>(null);
+
   async function fetchData() {
     setLoading(true);
 
@@ -33,6 +35,31 @@ export default function Home() {
 
     if (categoriesData) {
       setCategories(categoriesData);
+    }
+
+    // Fetch top selling product for hero section
+    if (!topProduct) {
+      const { data: topItems } = await supabase
+        .from('order_items')
+        .select('product_id, quantity');
+
+      if (topItems && topItems.length > 0) {
+        const salesMap: Record<string, number> = {};
+        topItems.forEach(item => {
+          if (item.product_id) {
+            salesMap[item.product_id] = (salesMap[item.product_id] || 0) + item.quantity;
+          }
+        });
+        const topId = Object.entries(salesMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (topId) {
+          const { data: topProd } = await supabase
+            .from('products')
+            .select('*, categories(*)')
+            .eq('id', topId)
+            .single();
+          if (topProd) setTopProduct(topProd);
+        }
+      }
     }
 
     // Fetch products (many-to-many categories via product_categories join table)
@@ -101,15 +128,15 @@ export default function Home() {
             <div className="hidden lg:block relative w-[400px] animate-scale-in" style={{ animationDelay: '0.2s' }}>
               <div className="absolute inset-0 bg-gradient-to-tr from-primary-400 to-accent-300 rounded-[3rem] rotate-6 opacity-60 blur-2xl animate-pulse-slow"></div>
               <div className="relative z-20 translate-y-[-10px]">
-                {products.length > 0 && (
+                {(topProduct || products[0]) && (
                   <div className="relative">
                     <div className="absolute -top-6 -right-6 z-30 bg-gradient-to-r from-accent-500 to-rose-500 text-white font-black px-6 py-2 rounded-full shadow-xl shadow-rose-500/30 transform rotate-12 flex items-center gap-2 border-2 border-white/20 animate-bounce">
                       <Zap className="w-5 h-5" />
-                      HOT SALE
+                      TOP VENTAS
                     </div>
                     <div className="transform transition-transform hover:scale-105 duration-500">
                       <ProductCard
-                        product={products[0]}
+                        product={topProduct || products[0]}
                         onOpenModal={setSelectedProduct}
                       />
                     </div>
