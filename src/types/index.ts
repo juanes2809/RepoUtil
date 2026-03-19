@@ -6,6 +6,10 @@ export interface Product {
   price: number;
   stock: number;
   sku: string | null;
+  weight: number | null;
+  width: number | null;
+  height: number | null;
+  length: number | null;
   main_image: string | null;
   images: string[] | null;
   is_active: boolean;

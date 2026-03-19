@@ -102,6 +102,31 @@ export default function CheckoutPage() {
   }, [selectedCity, deliveryType, cities]);
 
   async function fetchShippingQuotes(city: City) {
+    // Precios fijos para ciudades locales (no necesitan MiPaquete)
+    const localPrices: Record<string, number> = {
+      'bucaramanga': 7000,
+      'florida': 8000,
+      'giron': 10000,
+      'girón': 10000,
+      'piedecuesta': 12000,
+    };
+
+    const cityNameLower = city.name.toLowerCase().trim();
+    const localPrice = localPrices[cityNameLower];
+
+    if (localPrice !== undefined) {
+      setShippingOptions([{
+        carrier: 'Envío Local',
+        price: localPrice,
+        deliveryDays: 1,
+        serviceType: 'Entrega local',
+      }]);
+      setSelectedShipping(0);
+      setDeliveryCost(localPrice);
+      setShippingError('');
+      return;
+    }
+
     const mipaqueteCode = (city as any).mipaquete_code;
 
     if (!mipaqueteCode) {
@@ -119,12 +144,21 @@ export default function CheckoutPage() {
     setDeliveryCost(0);
 
     try {
+      const productDimensions = items.map(item => ({
+        weight: item.product.weight,
+        width: item.product.width,
+        height: item.product.height,
+        length: item.product.length,
+        quantity: item.quantity,
+      }));
+
       const res = await fetch('/api/shipping/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destinationCity: mipaqueteCode,
           declaredValue: subtotal,
+          products: productDimensions,
         }),
       });
 

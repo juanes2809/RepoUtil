@@ -4,7 +4,7 @@ import { createShipment } from '@/lib/mipaquete';
 
 export async function POST(request: NextRequest) {
   try {
-    const { orderId } = await request.json();
+    const { orderId, boxId } = await request.json();
 
     if (!orderId) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     if (!cityData?.mipaquete_code) {
       return NextResponse.json(
-        { error: 'City does not have a MiPaquete code configured' },
+        { error: 'La ciudad no tiene código MiPaquete configurado' },
         { status: 400 }
       );
     }
@@ -44,21 +44,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'MIPAQUETE_ORIGIN_CITY not configured' }, { status: 500 });
     }
 
+    // Get box dimensions if boxId provided, otherwise use defaults
+    let weight = parseFloat(process.env.MIPAQUETE_DEFAULT_WEIGHT || '1');
+    let width = parseFloat(process.env.MIPAQUETE_DEFAULT_WIDTH || '20');
+    let height = parseFloat(process.env.MIPAQUETE_DEFAULT_HEIGHT || '15');
+    let length = parseFloat(process.env.MIPAQUETE_DEFAULT_LENGTH || '30');
+    let boxName = 'Medidas por defecto';
+
+    if (boxId) {
+      const { data: box } = await supabaseAdmin!
+        .from('shipping_boxes')
+        .select('*')
+        .eq('id', boxId)
+        .single();
+
+      if (box) {
+        width = box.width;
+        height = box.height;
+        length = box.length;
+        weight = box.max_weight;
+        boxName = box.name;
+      }
+    }
+
     // Parse receiver name
     const nameParts = order.customer_name.split(' ');
     const receiverName = nameParts[0] || '';
     const receiverSurname = nameParts.slice(1).join(' ') || '';
 
-    // Parse sender info from env
     const senderName = process.env.NEXT_PUBLIC_BUSINESS_NAME || 'Tienda';
 
     const shipment = await createShipment({
       originCity,
       destinationCity: cityData.mipaquete_code,
-      weight: parseFloat(process.env.MIPAQUETE_DEFAULT_WEIGHT || '1'),
-      width: parseFloat(process.env.MIPAQUETE_DEFAULT_WIDTH || '20'),
-      height: parseFloat(process.env.MIPAQUETE_DEFAULT_HEIGHT || '15'),
-      length: parseFloat(process.env.MIPAQUETE_DEFAULT_LENGTH || '30'),
+      weight,
+      width,
+      height,
+      length,
       declaredValue: order.subtotal,
       sender: {
         name: senderName,
@@ -74,11 +96,11 @@ export async function POST(request: NextRequest) {
         email: order.customer_email,
         address: order.address || '',
       },
-      comments: `Pedido ${order.order_number}`,
+      comments: `Pedido ${order.order_number} | Caja: ${boxName}`,
     });
 
     // Save tracking info in order notes
-    const trackingInfo = `MiPaquete - Guía: ${shipment.trackingNumber} | Transportadora: ${shipment.carrier}`;
+    const trackingInfo = `MiPaquete - Guía: ${shipment.trackingNumber} | Transportadora: ${shipment.carrier} | Caja: ${boxName}`;
     await supabaseAdmin!
       .from('orders')
       .update({
@@ -93,9 +115,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Create shipment error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create shipment' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to create shipment';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

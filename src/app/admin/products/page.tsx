@@ -22,6 +22,10 @@ export default function AdminProductsPage() {
   const [stock, setStock] = useState('');
   const [sku, setSku] = useState('');
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [weight, setWeight] = useState('');
+  const [width, setWidth] = useState('');
+  const [prodHeight, setProdHeight] = useState('');
+  const [length, setLength] = useState('');
   const [mainImage, setMainImage] = useState('');
   const [images, setImages] = useState('');
   const [isActive, setIsActive] = useState(true);
@@ -62,6 +66,10 @@ export default function AdminProductsPage() {
     setPrice(product.price.toString());
     setStock(product.stock.toString());
     setSku(product.sku || '');
+    setWeight(product.weight?.toString() || '');
+    setWidth(product.width?.toString() || '');
+    setProdHeight(product.height?.toString() || '');
+    setLength(product.length?.toString() || '');
     setCategoryIds(product.categories?.map(c => c.id) || []);
     setMainImage(product.main_image || '');
     setImages(product.images?.join(', ') || '');
@@ -75,6 +83,10 @@ export default function AdminProductsPage() {
     setPrice('');
     setStock('');
     setSku('');
+    setWeight('');
+    setWidth('');
+    setProdHeight('');
+    setLength('');
     setCategoryIds([]);
     setMainImage('');
     setImages('');
@@ -100,6 +112,10 @@ export default function AdminProductsPage() {
       price: parseFloat(price),
       stock: parseInt(stock),
       sku: sku || null,
+      weight: weight ? parseFloat(weight) : null,
+      width: width ? parseFloat(width) : null,
+      height: prodHeight ? parseFloat(prodHeight) : null,
+      length: length ? parseFloat(length) : null,
       main_image: mainImage || null,
       images: images ? images.split(',').map(url => url.trim()).filter(Boolean) : null,
       is_active: isActive,
@@ -425,40 +441,88 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">SKU</label>
-                  <input
-                    type="text"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">SKU</label>
+                <input
+                  type="text"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">Categorías</label>
-                  <div className="border border-neutral-300 rounded-lg p-3 max-h-36 overflow-y-auto space-y-2">
-                    {categories.length > 0 ? categories.map((cat) => (
-                      <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 px-2 py-1 rounded">
-                        <input
-                          type="checkbox"
-                          checked={categoryIds.includes(cat.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCategoryIds([...categoryIds, cat.id]);
-                            } else {
-                              setCategoryIds(categoryIds.filter(id => id !== cat.id));
-                            }
-                          }}
-                          className="w-4 h-4 text-primary-500 rounded focus:ring-2 focus:ring-primary-500"
-                        />
-                        <span className="text-sm">{cat.name}</span>
-                      </label>
-                    )) : (
-                      <p className="text-sm text-neutral-400">No hay categorías</p>
-                    )}
+              <div>
+                <label className="block text-sm font-medium mb-2">Dimensiones del producto (para envío)</label>
+                <div className="grid grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs text-neutral-500 mb-1">Peso (kg)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                      placeholder="1.0"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    />
                   </div>
+                  <div>
+                    <label className="block text-xs text-neutral-500 mb-1">Ancho (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={width}
+                      onChange={(e) => setWidth(e.target.value)}
+                      placeholder="20"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-neutral-500 mb-1">Alto (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={prodHeight}
+                      onChange={(e) => setProdHeight(e.target.value)}
+                      placeholder="15"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-neutral-500 mb-1">Largo (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={length}
+                      onChange={(e) => setLength(e.target.value)}
+                      placeholder="30"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Categorías</label>
+                <div className="border border-neutral-300 rounded-lg p-3 max-h-36 overflow-y-auto space-y-2">
+                  {categories.length > 0 ? categories.map((cat) => (
+                    <label key={cat.id} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-50 px-2 py-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={categoryIds.includes(cat.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setCategoryIds([...categoryIds, cat.id]);
+                          } else {
+                            setCategoryIds(categoryIds.filter(id => id !== cat.id));
+                          }
+                        }}
+                        className="w-4 h-4 text-primary-500 rounded focus:ring-2 focus:ring-primary-500"
+                      />
+                      <span className="text-sm">{cat.name}</span>
+                    </label>
+                  )) : (
+                    <p className="text-sm text-neutral-400">No hay categorías</p>
+                  )}
                 </div>
               </div>
 
