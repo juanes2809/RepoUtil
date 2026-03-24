@@ -105,9 +105,8 @@ export default function CheckoutPage() {
     // Precios fijos para ciudades locales (no necesitan MiPaquete)
     const localPrices: Record<string, number> = {
       'bucaramanga': 7000,
-      'florida': 8000,
+      'floridablanca': 8000,
       'giron': 10000,
-      'girón': 10000,
       'piedecuesta': 12000,
     };
 
