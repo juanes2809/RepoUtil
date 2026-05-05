@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Order } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { ShoppingCart, ArrowLeft, Search, Package, Truck, CheckCircle, XCircle, Clock, CreditCard, AlertCircle } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Search, Package, Truck, CheckCircle, XCircle, Clock, CreditCard, AlertCircle, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminOrdersPage() {
@@ -15,10 +15,40 @@ export default function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [guideNumber, setGuideNumber] = useState('');
+  const [sendingGuide, setSendingGuide] = useState(false);
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  async function sendGuideToCustomer() {
+    if (!selectedOrder) return;
+    if (!guideNumber.trim()) {
+      toast.error('Ingresa el número de guía');
+      return;
+    }
+
+    setSendingGuide(true);
+    try {
+      const response = await fetch(`/api/orders/${selectedOrder.id}/send-guide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guideNumber }),
+      });
+
+      if (!response.ok) throw new Error('Error al enviar');
+
+      toast.success(`Guía enviada a ${selectedOrder.customer_email}`);
+      setGuideNumber('');
+      fetchOrders();
+      viewOrderDetails(selectedOrder.id);
+    } catch {
+      toast.error('Error al enviar la guía');
+    } finally {
+      setSendingGuide(false);
+    }
+  }
 
   async function fetchOrders() {
     setLoading(true);
@@ -512,6 +542,47 @@ export default function AdminOrdersPage() {
                         {getStatusLabel(status)}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Send shipping guide - only for paid delivery orders */}
+              {selectedOrder.payment_status === 'paid' && selectedOrder.delivery_type === 'delivery' && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                    <Send className="w-5 h-5 text-purple-500" />
+                    Enviar guía al cliente
+                  </h3>
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-3">
+                    <p className="text-sm text-purple-800">
+                      Ingresa el número de guía de Coordinadora y se enviará al correo <strong>{selectedOrder.customer_email}</strong>.
+                    </p>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={guideNumber}
+                        onChange={(e) => setGuideNumber(e.target.value)}
+                        placeholder="Ej: 123456789"
+                        className="flex-1 px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm font-mono"
+                      />
+                      <button
+                        onClick={sendGuideToCustomer}
+                        disabled={sendingGuide || !guideNumber.trim()}
+                        className="px-5 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+                      >
+                        {sendingGuide ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        Enviar
+                      </button>
+                    </div>
+                    {selectedOrder.notes && selectedOrder.notes.includes('Guía Coordinadora') && (
+                      <p className="text-xs text-purple-700 font-medium">
+                        {selectedOrder.notes.split('\n').find(l => l.includes('Guía Coordinadora'))}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

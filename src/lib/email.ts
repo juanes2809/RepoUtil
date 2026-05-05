@@ -172,6 +172,88 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
   }
 }
 
+interface ShippingGuideEmailData {
+  customerName: string;
+  customerEmail: string;
+  orderNumber: string;
+  guideNumber: string;
+  city?: string;
+  department?: string;
+  address?: string;
+}
+
+export async function sendShippingGuideEmail(data: ShippingGuideEmailData) {
+  const businessName = process.env.NEXT_PUBLIC_BUSINESS_NAME || 'Tu Tienda';
+  const businessEmail = process.env.NEXT_PUBLIC_BUSINESS_EMAIL || 'contact@yourstore.com';
+  const businessPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE || '+57 300 123 4567';
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #fafaf9;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    <div style="background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%); padding: 40px 20px; text-align: center;">
+      <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">${businessName}</h1>
+      <p style="margin: 10px 0 0 0; color: #ffffff; font-size: 16px; opacity: 0.9;">📦 Tu pedido está en camino</p>
+    </div>
+    <div style="padding: 40px 20px;">
+      <h2 style="margin: 0 0 20px 0; color: #1c1917; font-size: 24px;">¡Tu pedido fue enviado!</h2>
+      <p style="margin: 0 0 10px 0; color: #44403c; font-size: 16px;">Hola ${data.customerName},</p>
+      <p style="margin: 0 0 30px 0; color: #44403c; font-size: 16px;">
+        Tu pedido <strong style="color: #7c3aed;">#${data.orderNumber}</strong> ya está en camino con <strong>Coordinadora</strong>.
+      </p>
+      <div style="margin: 0 0 30px 0; padding: 24px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border-radius: 12px; border: 2px solid #c4b5fd; text-align: center;">
+        <p style="margin: 0 0 8px 0; color: #6d28d9; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Número de guía</p>
+        <p style="margin: 0; color: #3b0764; font-size: 28px; font-weight: 800; letter-spacing: 3px;">${data.guideNumber}</p>
+      </div>
+      ${data.address ? `
+      <div style="margin-bottom: 30px; padding: 16px; background-color: #f9fafb; border-left: 4px solid #7c3aed; border-radius: 4px;">
+        <p style="margin: 0 0 8px 0; color: #1c1917; font-weight: 600; font-size: 14px;">Dirección de entrega</p>
+        <p style="margin: 0; color: #44403c; font-size: 14px;">${data.address}${data.city ? `, ${data.city}` : ''}${data.department ? `, ${data.department}` : ''}</p>
+      </div>
+      ` : ''}
+      <div style="margin-top: 30px; padding: 20px; background-color: #fef3e8; border-radius: 8px; border-left: 4px solid #f5a438;">
+        <p style="margin: 0 0 10px 0; color: #1c1917; font-weight: 600;">¿Necesitas ayuda?</p>
+        <p style="margin: 0; color: #44403c;">
+          Contáctanos: <a href="mailto:${businessEmail}" style="color: #f5a438; text-decoration: none;">${businessEmail}</a><br>
+          Teléfono: <a href="tel:${businessPhone}" style="color: #f5a438; text-decoration: none;">${businessPhone}</a>
+        </p>
+      </div>
+    </div>
+    <div style="background-color: #f5f5f4; padding: 30px 20px; text-align: center;">
+      <p style="margin: 0; color: #78716c; font-size: 14px;">
+        © ${new Date().getFullYear()} ${businessName}. Todos los derechos reservados.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  try {
+    const { data: emailData, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || `${businessName} <onboarding@resend.dev>`,
+      to: [data.customerEmail],
+      subject: `📦 Tu pedido #${data.orderNumber} está en camino — Guía ${data.guideNumber}`,
+      html: htmlContent,
+    });
+
+    if (error) {
+      console.error('Error sending shipping guide email:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data: emailData };
+  } catch (error) {
+    console.error('Error sending shipping guide email:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendPaymentFailedEmail(data: PaymentFailedEmailData) {
   const businessName = process.env.NEXT_PUBLIC_BUSINESS_NAME || 'Tu Tienda';
   const businessEmail = process.env.NEXT_PUBLIC_BUSINESS_EMAIL || 'contact@yourstore.com';
