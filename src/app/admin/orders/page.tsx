@@ -4,18 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Order } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { ShoppingCart, ArrowLeft, Search, Package, Truck, CheckCircle, XCircle, Clock, CreditCard, AlertCircle, Send } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Search, Package, Truck, CheckCircle, XCircle, Clock, CreditCard, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-interface ShippingBox {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-  length: number;
-  max_weight: number;
-  is_active: boolean;
-}
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -26,60 +16,9 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showModal, setShowModal] = useState(false);
 
-  // Shipping guide state
-  const [boxes, setBoxes] = useState<ShippingBox[]>([]);
-  const [selectedBox, setSelectedBox] = useState<string>('');
-  const [generatingGuide, setGeneratingGuide] = useState(false);
-
   useEffect(() => {
     fetchOrders();
-    fetchBoxes();
   }, []);
-
-  async function fetchBoxes() {
-    const { data } = await supabase
-      .from('shipping_boxes')
-      .select('*')
-      .eq('is_active', true)
-      .order('name');
-    if (data) setBoxes(data);
-  }
-
-  async function generateShippingGuide() {
-    if (!selectedOrder) return;
-    if (!selectedBox) {
-      toast.error('Selecciona una caja para el envío');
-      return;
-    }
-
-    setGeneratingGuide(true);
-    try {
-      const response = await fetch('/api/shipping/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: selectedOrder.id,
-          boxId: selectedBox,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al generar la guía');
-      }
-
-      toast.success(`Guía generada: ${data.shipment.trackingNumber} (${data.shipment.carrier})`);
-      fetchOrders();
-      // Refresh order details
-      viewOrderDetails(selectedOrder.id);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error al generar la guía';
-      toast.error(message);
-    } finally {
-      setGeneratingGuide(false);
-    }
-  }
 
   async function fetchOrders() {
     setLoading(true);
@@ -577,107 +516,6 @@ export default function AdminOrdersPage() {
                 </div>
               )}
 
-              {/* Generate Shipping Guide - only for paid delivery orders not yet shipped */}
-              {selectedOrder.payment_status === 'paid' &&
-               selectedOrder.delivery_type === 'delivery' &&
-               selectedOrder.status !== 'shipped' &&
-               selectedOrder.status !== 'completed' && (
-                <div>
-                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                    <Send className="w-5 h-5 text-purple-500" />
-                    Generar Guía de Envío
-                  </h3>
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 space-y-4">
-                    <div>
-                      <p className="text-sm text-purple-800 mb-1">
-                        <span className="font-medium">Destino:</span> {selectedOrder.city}, {selectedOrder.department}
-                      </p>
-                      <p className="text-sm text-purple-800">
-                        <span className="font-medium">Dirección:</span> {selectedOrder.address}
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-purple-900 mb-2">Seleccionar caja:</label>
-                      {boxes.length > 0 ? (
-                        <div className="space-y-2">
-                          {boxes.map((box) => (
-                            <label
-                              key={box.id}
-                              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-colors ${
-                                selectedBox === box.id
-                                  ? 'border-purple-500 bg-purple-100'
-                                  : 'border-neutral-200 bg-white hover:border-purple-300'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="radio"
-                                  name="shippingBox"
-                                  value={box.id}
-                                  checked={selectedBox === box.id}
-                                  onChange={(e) => setSelectedBox(e.target.value)}
-                                  className="w-4 h-4 text-purple-500"
-                                />
-                                <div>
-                                  <p className="font-medium text-sm">{box.name}</p>
-                                  <p className="text-xs text-neutral-500">
-                                    {box.width} x {box.height} x {box.length} cm | Máx {box.max_weight} kg
-                                  </p>
-                                </div>
-                              </div>
-                              <Package className="w-5 h-5 text-neutral-400" />
-                            </label>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-purple-700">
-                          No hay cajas configuradas.{' '}
-                          <Link href="/admin/boxes" className="underline font-medium">
-                            Agrega una caja primero
-                          </Link>
-                        </p>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={generateShippingGuide}
-                      disabled={generatingGuide || !selectedBox}
-                      className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {generatingGuide ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                          Generando guía...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Generar Guía MiPaquete
-                        </>
-                      )}
-                    </button>
-                    <p className="text-xs text-purple-600 text-center">
-                      Se descontará del saldo de tu cuenta MiPaquete
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Show tracking info if order already shipped */}
-              {selectedOrder.notes && selectedOrder.notes.includes('MiPaquete') && (
-                <div>
-                  <h3 className="font-semibold text-lg mb-3 flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-green-500" />
-                    Información de Envío
-                  </h3>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    {selectedOrder.notes.split('\n').filter(l => l.includes('MiPaquete')).map((line, i) => (
-                      <p key={i} className="text-sm text-green-800 font-medium">{line}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="p-6 border-t border-neutral-200 flex justify-end">

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   Package, ShoppingCart, TrendingUp, AlertCircle,
   CheckCircle, LogOut, Settings, Tag, Grid, Receipt,
-  Box, BarChart3
+  BarChart3
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Order, Product } from '@/types';
@@ -222,15 +222,6 @@ export default function AdminDashboard() {
             <Tag className="w-8 h-8 text-green-500 mb-3 group-hover:scale-110 transition-transform" />
             <h3 className="font-semibold text-lg">Cupones</h3>
             <p className="text-sm text-neutral-600 mt-1">Gestionar descuentos</p>
-          </Link>
-
-          <Link
-            href="/admin/boxes"
-            className="bg-white hover:bg-neutral-50 rounded-xl p-6 shadow-sm border border-neutral-200 transition-all hover:scale-105 group"
-          >
-            <Box className="w-8 h-8 text-orange-500 mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="font-semibold text-lg">Cajas</h3>
-            <p className="text-sm text-neutral-600 mt-1">Cajas para envío</p>
           </Link>
 
           <Link

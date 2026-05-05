@@ -13,10 +13,7 @@ import Image from 'next/image';
 import { useUser } from '@clerk/nextjs';
 
 interface ShippingOption {
-  carrier: string;
   price: number;
-  deliveryDays: number;
-  serviceType: string;
 }
 
 export default function CheckoutPage() {
@@ -41,9 +38,7 @@ export default function CheckoutPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
   const [deliveryCost, setDeliveryCost] = useState(0);
 
-  // MiPaquete shipping state
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
-  const [selectedShipping, setSelectedShipping] = useState<number>(-1);
+  // Shipping estimate state
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [shippingError, setShippingError] = useState('');
 
@@ -56,7 +51,8 @@ export default function CheckoutPage() {
       ? (subtotal * appliedCoupon.discount_value) / 100
       : appliedCoupon.discount_value
     : 0;
-  const total = subtotal + deliveryCost - discount;
+  // Solo se cobran los productos, el envío es estimado y se paga aparte (Coordinadora)
+  const total = subtotal - discount;
 
   // Pre-fill form with Clerk user data
   useEffect(() => {
@@ -95,34 +91,27 @@ export default function CheckoutPage() {
       }
     } else {
       setDeliveryCost(0);
-      setShippingOptions([]);
-      setSelectedShipping(-1);
       setShippingError('');
     }
   }, [selectedCity, deliveryType, cities]);
 
   async function fetchShippingQuotes(city: City) {
-    // Precios fijos para ciudades locales (no necesitan MiPaquete)
+    // Precios fijos para ciudades locales
     const localPrices: Record<string, number> = {
       'bucaramanga': 7000,
       'floridablanca': 8000,
+      'giron': 10000,
       'girón': 10000,
-      'piedecuesta': 12000,
+      'piedecuesta': 13000,
     };
 
     const cityNameLower = city.name.toLowerCase().trim();
     const localPrice = localPrices[cityNameLower];
 
     if (localPrice !== undefined) {
-      setShippingOptions([{
-        carrier: 'Envío Local',
-        price: localPrice,
-        deliveryDays: 1,
-        serviceType: 'Entrega local',
-      }]);
-      setSelectedShipping(0);
       setDeliveryCost(localPrice);
       setShippingError('');
+      setLoadingShipping(false);
       return;
     }
 
@@ -130,34 +119,21 @@ export default function CheckoutPage() {
 
     if (!mipaqueteCode) {
       setDeliveryCost(0);
-      setShippingOptions([]);
-      setSelectedShipping(-1);
       setShippingError('No disponemos de envíos a ese lugar por el momento.');
       return;
     }
 
     setLoadingShipping(true);
     setShippingError('');
-    setShippingOptions([]);
-    setSelectedShipping(-1);
     setDeliveryCost(0);
 
     try {
-      const productDimensions = items.map(item => ({
-        weight: item.product.weight,
-        width: item.product.width,
-        height: item.product.height,
-        length: item.product.length,
-        quantity: item.quantity,
-      }));
-
       const res = await fetch('/api/shipping/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destinationCity: mipaqueteCode,
           declaredValue: subtotal,
-          products: productDimensions,
         }),
       });
 
@@ -166,18 +142,16 @@ export default function CheckoutPage() {
       const data = await res.json();
 
       if (data.quotes && data.quotes.length > 0) {
-        setShippingOptions(data.quotes);
-        const cheapestIdx = data.quotes.reduce((minIdx: number, opt: ShippingOption, idx: number) =>
-          opt.price < data.quotes[minIdx].price ? idx : minIdx, 0);
-        setSelectedShipping(cheapestIdx);
-        setDeliveryCost(data.quotes[cheapestIdx].price);
+        // Mostrar el precio más caro + $5.000 como estimado
+        const maxPrice = Math.max(...data.quotes.map((q: ShippingOption) => q.price));
+        setDeliveryCost(maxPrice + 5000);
       } else {
         setDeliveryCost(0);
-        setShippingError('No disponemos de envíos a ese lugar por el momento.');
+        setShippingError('No se pudo obtener el estimado de envío.');
       }
     } catch {
       setDeliveryCost(0);
-      setShippingError('No disponemos de envíos a ese lugar por el momento.');
+      setShippingError('No se pudo obtener el estimado de envío.');
     } finally {
       setLoadingShipping(false);
     }
@@ -297,17 +271,6 @@ export default function CheckoutPage() {
           quantity: item.quantity,
           unit_price: item.product.price,
         }));
-
-        // Add delivery cost as an item if applicable
-        if (deliveryCost > 0) {
-          paymentItems.push({
-            id: 'delivery',
-            title: 'Costo de envío',
-            description: `Envío a ${city}, ${department}`,
-            quantity: 1,
-            unit_price: deliveryCost,
-          });
-        }
 
         // Apply discount as negative item
         if (discount > 0) {
@@ -670,11 +633,11 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  {/* MiPaquete Shipping Options */}
+                  {/* Estimado de envío */}
                   {loadingShipping && (
                     <div className="md:col-span-2 flex items-center justify-center gap-3 py-6 text-neutral-500">
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span className="font-medium">Cotizando opciones de envío...</span>
+                      <span className="font-medium">Calculando estimado de envío...</span>
                     </div>
                   )}
 
@@ -684,48 +647,18 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {shippingOptions.length > 0 && !loadingShipping && (
+                  {deliveryCost > 0 && !loadingShipping && !shippingError && (
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-neutral-700 mb-3">
-                        <Truck className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-                        Opciones de envío
-                      </label>
-                      <div className="space-y-3">
-                        {shippingOptions.map((option, idx) => (
-                          <label
-                            key={idx}
-                            className={`flex items-center justify-between p-4 cursor-pointer rounded-xl transition-all duration-200 border-2 ${
-                              selectedShipping === idx
-                                ? 'bg-primary-50/50 border-primary-500 shadow-sm'
-                                : 'bg-white/60 border-neutral-200 hover:border-neutral-300'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <input
-                                type="radio"
-                                name="shipping"
-                                checked={selectedShipping === idx}
-                                onChange={() => {
-                                  setSelectedShipping(idx);
-                                  setDeliveryCost(option.price);
-                                }}
-                                className="w-4 h-4 text-primary-600 border-neutral-300 focus:ring-primary-500"
-                              />
-                              <div>
-                                <span className="font-bold text-neutral-900 text-sm">{option.carrier}</span>
-                                <span className="block text-xs text-neutral-500">
-                                  {option.deliveryDays > 0
-                                    ? `${option.deliveryDays} día${option.deliveryDays > 1 ? 's' : ''} hábil${option.deliveryDays > 1 ? 'es' : ''}`
-                                    : 'Consultar tiempo de entrega'}
-                                  {option.serviceType && ` · ${option.serviceType}`}
-                                </span>
-                              </div>
-                            </div>
-                            <span className="font-bold text-neutral-900">
-                              ${option.price.toLocaleString('es-CO')}
-                            </span>
-                          </label>
-                        ))}
+                      <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                        <Truck className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-blue-900">
+                            Costo estimado de envío (Coordinadora): ~${deliveryCost.toLocaleString('es-CO')} COP
+                          </p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            Este es un estimado. El envío se gestiona a través de Coordinadora y el pago se realiza directamente con ellos. <strong>No se incluye en el total de esta compra.</strong>
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -776,13 +709,6 @@ export default function CheckoutPage() {
                   <span className="text-neutral-900">${subtotal.toLocaleString('es-CO')}</span>
                 </div>
 
-                {deliveryCost > 0 && (
-                  <div className="flex justify-between items-center text-neutral-600 font-medium pb-4 border-b border-neutral-100">
-                    <span>Costo de envío</span>
-                    <span className="text-neutral-900">${deliveryCost.toLocaleString('es-CO')}</span>
-                  </div>
-                )}
-
                 {discount > 0 && (
                   <div className="flex justify-between items-center text-green-600 font-semibold pb-4 border-b border-neutral-100">
                     <span>Descuento</span>
@@ -800,7 +726,15 @@ export default function CheckoutPage() {
                       <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">COP</span>
                     </div>
                   </div>
+                  <p className="text-xs text-neutral-500 mt-1">Solo productos. El envío se paga aparte con Coordinadora.</p>
                 </div>
+
+                {deliveryCost > 0 && deliveryType === 'delivery' && (
+                  <div className="flex justify-between items-center text-blue-600 text-sm pt-2 border-t border-neutral-100">
+                    <span className="font-medium">Envío estimado (Coordinadora)</span>
+                    <span className="font-semibold">~${deliveryCost.toLocaleString('es-CO')}</span>
+                  </div>
+                )}
               </div>
 
               {/* Payment Method Selector */}
